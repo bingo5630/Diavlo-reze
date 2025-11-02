@@ -1,0 +1,8 @@
+https://codeload.github.com/gautamajay52/pyrogram/zip/refs/heads/dev
+pyrofork==2.3.38
+TgCrypto
+pyromod==1.5
+pymongo
+dnspython
+aiohttp
+requests
