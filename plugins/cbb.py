@@ -43,7 +43,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
         )
     elif data == "premium":
         await query.message.edit_text(
-            text=f"""<b>✨ Get Premium Membership of <a href=https://t.me/Cultured_Aodox>@Cultured_Aodox</a> Network and enjoy exclusive benefits!</b>
+            text=f"""<b>✨ Get Premium Membership of <a href="https://t.me/Cultured_Aodox">@Cultured_Aodox</a> Network and enjoy exclusive benefits!</b>
 
 <blockquote><b><i>💰 Pricing:
 ━━━━━━━━━━━━━━
@@ -63,10 +63,10 @@ async def cb_handler(client: Bot, query: CallbackQuery):
 ➡️ Fast Uploads & Priority Support
 ━━━━━━━━━━━━━━</i></b></blockquote>
 
-<b>📩 DM Here:</b> <a href=https://t.me/Diablovolfir0>@Diablovolfir0</a>
+<b>📩 DM Here:</b> <a href="https://t.me/Diablovolfir0">@Diablovolfir0</a>
 <b>We Have Limited Seats For Premium Users!</b>
 
-<b>🧾 Premium Proof:</b> <a href=https://t.me/Aodox_premium_proof>@Aodox_premium_proof</a>""",
+<b>🧾 Premium Proof:</b> <a href="https://t.me/Aodox_premium_proof">@Aodox_premium_proof</a>""",
             disable_web_page_preview=True,
             reply_markup=InlineKeyboardMarkup(
                 [
