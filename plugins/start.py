@@ -23,10 +23,6 @@ async def auto_del_notification(client, msg, delay_time):
         await asyncio.sleep(delay_time)
         await msg.delete()
 
-import asyncio
-
-user_timeouts = {}
-
 @Bot.on_message(filters.command('start') & filters.private & subscribed)
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
@@ -43,12 +39,6 @@ async def start_command(client: Client, message: Message):
             basic = text.split(" ", 1)[1]
             if basic.startswith("yu3elk"):
                 base64_string = basic[6:-1]
-
-                # If 30 seconds haven't passed since the last short_url call
-                if user_id in user_timeouts and (asyncio.get_event_loop().time() - user_timeouts[user_id]) < 130:
-                    await message.reply("<b><blockquote>🚨 ʙʏᴘᴀss ᴅᴇᴛᴇᴄᴛᴇᴅ 🚨</blockquote>\n\n<blockquote>ᴀʀᴇ ᴍᴇʀᴇ ʙᴇᴛᴇ ᴋɪᴛɴɪ ʙᴀᴀʀ ʙᴏʟᴀ ʜ ʙᴀᴀᴘ ꜱᴇ ᴄʜᴀʟᴀᴋɪ ɴʜɪ ? 🥸🖕\n\nᴄʜʟ ʙᴇᴛᴇ ᴀʙ ᴡᴀᴘᴀꜱ ꜱᴇ ꜱᴏʟᴠᴇ ᴋʀɴᴇ ʟɢᴊᴀ ᴍᴇʀᴀ ᴘʏᴀʀᴀ ʙᴇᴛᴀ ᴏʀ ɪꜱꜱ ʙᴀᴀʀ ᴄʜᴀʟᴀᴋɪ ɴʜɪ !! 🌚💭</blockquote></b>")
-                    return
-
             else:
                 base64_string = text.split(" ", 1)[1]
 
@@ -59,7 +49,6 @@ async def start_command(client: Client, message: Message):
         is_user_premium = await is_premium(user_id)
         if not is_user_premium and user_id != OWNER_ID and not basic.startswith("yu3elk"):
             await short_url(client, message, base64_string)
-            user_timeouts[user_id] = asyncio.get_event_loop().time()  # Start the 30s countdown
             return
 
         string = await decode(base64_string)
@@ -87,7 +76,6 @@ async def start_command(client: Client, message: Message):
             except Exception as e:
                 print(f"Error processing argument: {e}")
                 return
-
         temp_msg = await message.reply("Please wait...")
         try:
             messages = await get_messages(client, ids)
@@ -149,10 +137,12 @@ async def start_command(client: Client, message: Message):
                     id=message.from_user.id
                 ),
                 reply_markup=reply_markup,
+
             )
         except Exception as e:
             print(f"Error replying to message: {e}")
         return
+
 
 #=====================================================================================##
 
@@ -168,7 +158,7 @@ async def short_url(client: Client, message: Message, base64_string):
         buttons = [
             [
                 InlineKeyboardButton(text="Download", url=short_link),
-                InlineKeyboardButton(text="Tutorial", url="https://t.me/How_To_Download_OTx/9")
+                InlineKeyboardButton(text="Tutorial", url="https://t.me/How_To_Download_Ecchi_Network")
             ],
             [
                 InlineKeyboardButton(text="Premium", callback_data="premium")
@@ -250,7 +240,7 @@ async def my_plan(client: Client, message: Message):
     if is_user_premium:
         await message.reply_text("Ads : Disable\nPremium : Unlocked\n\nNice Dude you're a premium user..!")
     else:
-        await message.reply_text("Ads : Enable\nPremium : Locked\nUnlock Premium to get more benefits\nContact - @Diablovolfir0..!")
+        await message.reply_text("Ads : Enable\nPremium : Locked\nUnlock Premium to get more benefits\nContact - @Amex_Fushiguro..!")
 
 @Bot.on_message(filters.command('users') & filters.private & filters.user(OWNER_ID))
 async def get_users(client: Bot, message: Message):
@@ -269,7 +259,7 @@ async def send_text(client: Bot, message: Message):
         deleted = 0
         unsuccessful = 0
         
-        pls_wait = await message.reply("<i>Broadcast Processing Till Wait Dude... </i>")
+        pls_wait = await message.reply("<i>Broadcast Processing Please Wait Bro... </i>")
         for chat_id in query:
             try:
                 await broadcast_msg.copy(chat_id)
