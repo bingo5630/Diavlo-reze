@@ -1,389 +1,305 @@
-import asyncio
-import logging
 import os
-import random
-import sys
-import time
-from datetime import datetime, timedelta
+import asyncio
 from pyrogram import Client, filters, __version__
-from pyrogram.enums import ParseMode, ChatAction
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
-from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
-from bot.core.bot_instance import bot, bot_loop, ani_cache
-from bot.Script import botmaker
-from helper_func import *
-from bot.core.database import db
-from asyncio import sleep as asleep, gather
-from pyrogram.filters import command, private, user
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from pyrogram.errors import FloodWait, MessageNotModified
-from pyrogram import filters
-from pyrogram.types import Message
-import subprocess
-from config import Var
-from bot.core.func_utils import decode, editMessage, sendMessage, new_task, convertTime, getfeed
-from bot.core.auto_animes import get_animes
-from bot.core.reporter import rep
-import time
-from datetime import datetime
-from motor.motor_asyncio import AsyncIOMotorClient
-from pyrogram.types import Message
-from bot.plugins.shortner import get_short
-from bot.core.database import db
+from pyrogram.enums import ParseMode
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 
-Var.BAN_SUPPORT = f"{Var.BAN_SUPPORT}"
+from bot import Bot
+from config import ADMINS, FORCE_MSG, OWNER_ID, START_MSG, CUSTOM_CAPTION, DISABLE_CHANNEL_BUTTON, PROTECT_CONTENT, START_PIC, FORCE_PIC, SHORT_MSG, AUTO_DEL, DEL_TIMER, DEL_MSG
+from helper_func import subscribed, encode, decode, get_messages
+from database.database import add_user, del_user, full_userbase, present_user, is_premium
+from plugins.shorturl import get_short
+from plugins.autodel import convert_time
 
-logger = logging.getLogger(__name__)
+async def delete_message(msg, delay_time):
+    if AUTO_DEL.lower() == "true": 
+        await asyncio.sleep(delay_time)    
+        await msg.delete()
 
-chat_data_cache = {}
+async def auto_del_notification(client, msg, delay_time):
+    if AUTO_DEL.lower() == "true":  
+        await msg.reply_text(DEL_MSG.format(time=convert_time(DEL_TIMER))) 
+        await asyncio.sleep(delay_time)
+        await msg.delete()
 
-async def not_joined(client: Client, message: Message):
-    temp = await message.reply("<b><i>ᴡᴀɪᴛ ᴀ sᴇᴄ..</i></b>")
+import asyncio
+
+user_timeouts = {}
+
+@Bot.on_message(filters.command('start') & filters.private & subscribed)
+async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
-    buttons = []
-    count = 0
-
     try:
-        all_channels = await db.show_channels()
-        for total, chat_id in enumerate(all_channels, start=1):
-            mode = await db.get_channel_mode(chat_id)  # Fetch mode
+        if not await present_user(user_id):
+            await add_user(user_id)
+    except Exception as e:
+        print(f"Error adding user: {e}")
 
-            await message.reply_chat_action(ChatAction.TYPING)
+    text = message.text
 
-            if not await is_sub(client, user_id, chat_id):  # Ensure is_sub is defined
-                try:
-                    if chat_id in chat_data_cache:
-                        data = chat_data_cache[chat_id]
-                    else:
-                        data = await client.get_chat(chat_id)
-                        chat_data_cache[chat_id] = data
+    if len(text) > 7:
+        try:
+            basic = text.split(" ", 1)[1]
+            if basic.startswith("yu3elk"):
+                base64_string = basic[6:-1]
 
-                    name = data.title
+                # If 30 seconds haven't passed since the last short_url call
+                if user_id in user_timeouts and (asyncio.get_event_loop().time() - user_timeouts[user_id]) < 130:
+                    await message.reply("<b><blockquote>🚨 ʙʏᴘᴀss ᴅᴇᴛᴇᴄᴛᴇᴅ 🚨</blockquote>\n\n<blockquote>ᴀʀᴇ ᴍᴇʀᴇ ʙᴇᴛᴇ ᴋɪᴛɴɪ ʙᴀᴀʀ ʙᴏʟᴀ ʜ ʙᴀᴀᴘ ꜱᴇ ᴄʜᴀʟᴀᴋɪ ɴʜɪ ? 🥸🖕\n\nᴄʜʟ ʙᴇᴛᴇ ᴀʙ ᴡᴀᴘᴀꜱ ꜱᴇ ꜱᴏʟᴠᴇ ᴋʀɴᴇ ʟɢᴊᴀ ᴍᴇʀᴀ ᴘʏᴀʀᴀ ʙᴇᴛᴀ ᴏʀ ɪꜱꜱ ʙᴀᴀʀ ᴄʜᴀʟᴀᴋɪ ɴʜɪ !! 🌚💭</blockquote></b>")
+                    return
 
-                    if mode == "on" and not data.username:
-                        invite = await client.create_chat_invite_link(
-                            chat_id=chat_id,
-                            creates_join_request=True,
-                            expire_date=datetime.utcnow() + timedelta(seconds=Var.FSUB_LINK_EXPIRY) if Var.FSUB_LINK_EXPIRY else None
-                        )
-                        link = invite.invite_link
-                    else:
-                        if data.username:
-                            link = f"https://t.me/{data.username}"
-                        else:
-                            invite = await client.create_chat_invite_link(
-                                chat_id=chat_id,
-                                expire_date=datetime.utcnow() + timedelta(seconds=Var.FSUB_LINK_EXPIRY) if Var.FSUB_LINK_EXPIRY else None
-                            )
-                            link= invite.invite_link
+            else:
+                base64_string = text.split(" ", 1)[1]
 
-                    buttons.append([InlineKeyboardButton(text=name, url=link)])
-                    count += 1
-                    await temp.edit(f"<b>{'! ' * count}</b>")
-                except Exception as e:
-                    logger.error(f"Error with chat {chat_id}: {e}")
-                    return await temp.edit(
-                        f"<b><i>! Eʀʀᴏʀ, Cᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @Urr_Sanjiii</i></b>\n"
-                        f"<blockquote expandable><b>Rᴇᴀsᴏɴ:</b> {e}</blockquote>"
-                    )
-
-        # Fetch bot's username
-        me = await client.get_me()
-        if not me.username:
-            await temp.edit("<b>❌ Error: Bot username is not set.</b>")
+        except Exception as e:
+            print(f"Error processing message: {e}")
             return
 
-        if len(message.command) > 1:
-            buttons.append([InlineKeyboardButton("♻️ Try Again ♻️", url=f"https://t.me/{me.username}?start={message.command[1]}")])
-        else:
-            pass
+        is_user_premium = await is_premium(user_id)
+        if not is_user_premium and user_id != OWNER_ID and not basic.startswith("yu3elk"):
+            await short_url(client, message, base64_string)
+            user_timeouts[user_id] = asyncio.get_event_loop().time()  # Start the 30s countdown
+            return
+
+        string = await decode(base64_string)
+        argument = string.split("-")
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+            except Exception as e:
+                print(f"Error calculating start/end: {e}")
+                return
+            if start <= end:
+                ids = range(start, end + 1)
+            else:
+                ids = []
+                i = start
+                while True:
+                    ids.append(i)
+                    i -= 1
+                    if i < end:
+                        break
+        elif len(argument) == 2:
+            try:
+                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except Exception as e:
+                print(f"Error processing argument: {e}")
+                return
+
+        temp_msg = await message.reply("Please wait...")
+        try:
+            messages = await get_messages(client, ids)
+        except Exception as e:
+            print(f"Error getting messages: {e}")
+            await message.reply_text("Something went wrong..!")
+            return
+        await temp_msg.delete()
+
+        for idx, msg in enumerate(messages):
+            if bool(CUSTOM_CAPTION) & bool(msg.document):
+                caption = CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                                filename=msg.document.file_name)
+            else:
+                caption = "" if not msg.caption else msg.caption.html
+
+            if DISABLE_CHANNEL_BUTTON:
+                reply_markup = msg.reply_markup
+            else:
+                reply_markup = None
+
+            try:
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML,
+                               reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                await asyncio.sleep(0.5)
+                asyncio.create_task(delete_message(copied_msg, DEL_TIMER))
+                if idx == len(messages) - 1 and AUTO_DEL:
+                    last_message = copied_msg
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML,
+                               reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                await asyncio.sleep(0.5)
+                asyncio.create_task(delete_message(copied_msg, DEL_TIMER))
+                if idx == len(messages) - 1 and AUTO_DEL:
+                    last_message = copied_msg
+
+            except Exception as e:
+                print(f"Error copying message: {e}")
+
+        if AUTO_DEL and last_message:
+            asyncio.create_task(auto_del_notification(client, last_message, DEL_TIMER))
+
+        return
+    else:
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("ʜᴇʟᴘ", callback_data='help'),
+             InlineKeyboardButton("ᴀʙᴏᴜᴛ", callback_data='about')],
+            [InlineKeyboardButton("ᴄʟᴏꜱᴇ", callback_data='close')]
+        ])
+        try:
+            await message.reply_photo(
+                photo=START_PIC,
+                caption=START_MSG.format(
+                    first=message.from_user.first_name,
+                    last=message.from_user.last_name,
+                    username=None if not message.from_user.username else '@' + message.from_user.username,
+                    mention=message.from_user.mention,
+                    id=message.from_user.id
+                ),
+                reply_markup=reply_markup,
+            )
+        except Exception as e:
+            print(f"Error replying to message: {e}")
+        return
+
+#=====================================================================================##
+
+WAIT_MSG = "<b>Working....</b>"
+REPLY_ERROR = "<code>Use this command as a reply to any telegram message without any spaces.</code>"
+
+#=====================================================================================##
+async def short_url(client: Client, message: Message, base64_string):
+    try:
+        prem_link = f"https://t.me/{client.username}?start=yu3elk{base64_string}7"
+        short_link = get_short(prem_link)
+
+        buttons = [
+            [
+                InlineKeyboardButton(text="Download", url=short_link),
+                InlineKeyboardButton(text="Tutorial", url="https://t.me/How_To_Download_OTx/9")
+            ],
+            [
+                InlineKeyboardButton(text="Premium", callback_data="premium")
+            ]
+        ]
 
         await message.reply_photo(
-            photo=Var.FORCE_PIC,
-            caption=botmaker.FORCE_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
+            photo=START_PIC,
+            caption=SHORT_MSG.format(
+                total_count="N/A"
             ),
             reply_markup=InlineKeyboardMarkup(buttons),
         )
-        await temp.delete()
-    except Exception as e:
-        logger.error(f"Final Error: {e}")
-        await temp.edit(
-            f"<b><i>! Eʀʀᴏʀ, Cᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @Urr_Sanjiii</i></b>\n"
-            f"<blockquote expandable><b>Rᴇᴀsᴏɴ:</b> {e}</blockquote>"
-        )
 
-@bot.on_message(filters.command('start') & filters.private)
-@new_task
-async def start_msg(client: Client, message: Message):
-    user_id = message.from_user.id
-    from_user = message.from_user
+    except IndexError:
+        pass
 
-     # Add user to database if not already present
-    if not await db.present_user(user_id):
-        await db.add_user(user_id)
 
-    # Check if user is banned
-    banned_users = await db.get_ban_users()
-    if user_id in banned_users:
-        return await message.reply_text(
-            "<b>⛔️ You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
-            "<i>Contact support if you think this is a mistake.</i>",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Contact Support", url=Var.BAN_SUPPORT)]]
-            )
-        )
-
-    # Check Force Subscription
-    if not await is_subscribed(client, user_id):  # Ensure is_subscribed is defined
-        return await not_joined(client, message)
-
-    txtargs = message.text.split()
-
-    # 4. Check if shortner is enabled
-    # Check for verification prefix
-    if len(txtargs) > 1 and txtargs[1].startswith("yu3elk") and txtargs[1].endswith("7"):
-        try:
-            # Verify user
-            await db.verify_user(user_id)
-            # Extract actual base64 string
-            base64_string = txtargs[1][6:-1]
-            txtargs[1] = base64_string # Restore actual payload for further processing
-            message.text = message.text.replace(f"yu3elk{base64_string}7", base64_string)
-            await message.reply("<b>✅ You have been successfully verified!</b>")
-        except Exception as e:
-            logger.error(f"Verification error: {e}")
-
-    # 5. Check shortener logic
-    shortner_status = await db.get_shortner_status()
-    is_user_verified = await db.is_user_verified(user_id)
-    is_user_premium = await check_admin(None, client, message)
-    OWNER_ID = Var.ADMINS[0] if Var.ADMINS else 0
-    is_user_owner = user_id == OWNER_ID or user_id in Var.ADMINS
-
-    if shortner_status and not is_user_verified and not is_user_owner and not is_user_premium and len(txtargs) > 1:
-        try:
-            base64_string = txtargs[1]
-            # Prevent double shortening if already verified (logic above handles verification)
-            # But here we are if NOT verified.
-
-            # Use bot username dynamically
-            me = await client.get_me()
-            target_url = f"https://t.me/{me.username}?start=yu3elk{base64_string}7"
-            short_link = await get_short(target_url, client)
-
-            # Validate short_link
-            if not short_link or not isinstance(short_link, str) or not short_link.startswith(("http://", "https://")):
-                logger.warning(f"Invalid short_link generated: {short_link}. Falling back to target_url.")
-                short_link = target_url
-
-            settings = await db.get_shortner_settings()
-            tutorial_link = settings.get('tutorial_link', "https://t.me/How_to_Download_7x/26")
-
-            # Validate tutorial_link
-            buttons = [[InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ", url=short_link)]]
-            if tutorial_link and isinstance(tutorial_link, str) and tutorial_link.startswith(("http://", "https://")):
-                buttons[0].append(InlineKeyboardButton("ᴛᴜᴛᴏʀɪᴀʟ •", url=tutorial_link))
-            else:
-                 logger.warning(f"Invalid tutorial_link found: {tutorial_link}. Skipping tutorial button.")
-
-            short_photo = Var.START_PIC
-            short_caption = f"""<b>⚠️ <u>Action Required</u> ⚠️</b>
-
-<b>You need to verify your account to access the files!</b>
-
-<b>1. Click on 'Open Link' button.</b>
-<b>2. Complete the shortener process.</b>
-<b>3. You will be redirected back here.</b>
-<b>4. Click 'Start' to get your files!</b>
-
-<b><i>Verification is valid for {await db.get_verification_time() // 3600} hours.</i></b>"""
-
-            await client.send_photo(
-                chat_id=message.chat.id,
-                photo=short_photo,
-                caption=short_caption,
-                reply_markup=InlineKeyboardMarkup(buttons)
-            )
-            return # Stop processing
-
-        except Exception as e:
-            logger.warning(f"Shortener failed: {e}")
-            # If shortener fails, we might want to allow access or show error.
-            # Letting it proceed might be safer for user experience if external API is down.
-            # But user wants verification.
-            # return await message.reply("Couldn't generate short link.")
-            pass
-    temp = await sendMessage(message, "<b>Pʟᴇᴀsᴇ ᴡᴀɪᴛ</b>")
-
-    if len(txtargs) <= 1:
-        await temp.delete()
-        reply_markup = InlineKeyboardMarkup(
+@Bot.on_message(filters.command('start') & filters.private)
+async def not_joined(client: Client, message: Message):
+    buttons = [
+        [
+            InlineKeyboardButton(text="ᴄʜᴀɴɴᴇʟ 1", url=client.invitelink1),
+            InlineKeyboardButton(text="ᴄʜᴀɴɴᴇʟ 2", url=client.invitelink2)
+        ]
+    ]
+    try:
+        buttons.append(
             [
-                [InlineKeyboardButton("•⚡️ ᴍᴀɪɴ ʜᴜʙ •", url=Var.MHCHANNEL_URL)],
-                [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
-                ]
+                InlineKeyboardButton(
+                    text="ᴛʀʏ ᴀɢᴀɪɴ",
+                    url=f"https://t.me/{client.username}?start={message.command[1]}"
+                )
             ]
         )
-        await message.reply_photo(
-            photo=Var.START_PIC,
-            caption=botmaker.START_MSG.format(
-                first=from_user.first_name,
-                last=from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=from_user.mention,
-                id=from_user.id
-            ),
-            reply_markup=reply_markup,
-            message_effect_id=5104841245755180586
-        )
+    except IndexError:
+        pass
+
+    await message.reply_photo(
+        photo=FORCE_PIC,
+        caption=FORCE_MSG.format(
+            first=message.from_user.first_name,
+            last=message.from_user.last_name,
+            username=None if not message.from_user.username else '@' + message.from_user.username,
+            mention=message.from_user.mention,
+            id=message.from_user.id
+        ),
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+@Bot.on_message(filters.command('request') & filters.private)
+async def request_command(client: Client, message: Message):
+    user_id = message.from_user.id
+
+    # Check if the user is a premium user
+    if not await is_premium(user_id):
+        await message.reply("You are not a premium user. Upgrade to premium to access this feature.")
         return
 
-    # Deep-link handling
-    try:
-        base64_string = txtargs[1]
-        arg = (await decode(base64_string)).split('-')
-        botmaker_msgs = []
-
-        # Fetch bot's username
-        me = await client.get_me()
-        if not me.username:
-            await editMessage(temp, "<b>❌ Error: Bot username is not set.</b>")
-            return
-    except Exception as e:
-        await rep.report(f"User : {user_id} | Error : {str(e)}", "error")
-        await editMessage(temp, "<b>Input Link Code Decode Failed !</b>")
+    # Check if the request has text
+    if len(message.command) < 2:
+        await message.reply("Send me your request in this format: /request your_request_here")
         return
 
-    if len(arg) in [2, 3]:
-        try:
-            # Validate configuration
-            if not isinstance(Var.FILE_STORE, int) or Var.FILE_STORE == 0:
-                logger.error("Var.FILE_STORE is invalid or zero")
-                await editMessage(temp, "<b>❌ Error: Invalid configuration.</b>")
-                return
-            if not isinstance(client.db_channel.id, int) or client.db_channel.id == 0:
-                logger.error("client.db_channel.id is invalid or zero")
-                await editMessage(temp, "<b>❌ Error: Invalid configuration.</b>")
-                return
+    # Get the request text
+    requested = " ".join(message.command[1:])
 
-            Var.FILE_AUTO_DELETE = await db.get_del_timer()  # Fetch deletion timer from database
-            if len(arg) == 2 and arg[0] == 'get':
-                fid = int(int(arg[1]) / abs(int(Var.FILE_STORE)))
-                msg = await client.get_messages(Var.FILE_STORE, message_ids=fid)
-                if msg.empty:
-                    return await editMessage(temp, "<b>File Not Found !</b>")
-                caption = (botmaker.CUSTOM_CAPTION.format(filename=msg.document.file_name) if bool(botmaker.CUSTOM_CAPTION) and bool(msg.document)
-                           else ("" if not msg.caption else msg.caption.html))
-                reply_markup = msg.reply_markup if not Var.DISABLE_CHANNEL_BUTTON else None
-                nmsg = await msg.copy(message.chat.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=reply_markup, protect_content=Var.PROTECT_CONTENT)
-                botmaker_msgs.append(nmsg)
-                await temp.delete()
-                if Var.FILE_AUTO_DELETE > 0:
-                    notification_msg = await message.reply(
-                        f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ {get_exp_time(Var.FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
-                    )
-                    await asyncio.sleep(Var.FILE_AUTO_DELETE)
-                    try:
-                        await nmsg.delete()
-                    except Exception as e:
-                        logger.error(f"Error deleting message {nmsg.id}: {e}")
-                    try:
-                        reload_url = f"https://t.me/{me.username}?start={txtargs[1]}"
-                        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ!", url=reload_url), InlineKeyboardButton("ᴄʟᴏsᴇ", callback_data='close')]])
-                        await notification_msg.edit(
-                            "<b><u>Pʀᴇᴠɪᴏᴜs Mᴇssᴀɢᴇ ᴡᴀs Dᴇʟᴇᴛᴇᴅ 🗑</u></b><blockquote><b>\nIғ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ɢᴇᴛ ᴛʜᴇ ғɪʟᴇ(s) ᴀɢᴀɪɴ, ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴇʟsᴇ ᴄʟᴏsᴇ ᴛʜɪs ᴍᴇssᴀɢᴇ ʙʏ ᴄʟɪᴄᴋ ᴏɴ ᴄʟᴏsᴇ.</b></blockquote>",
-                            reply_markup=keyboard
-                        )
-                    except Exception as e:
-                        logger.error(f"Error updating notification: {e}")
-            elif len(arg) == 3:
-                start = int(int(arg[1]) / abs(client.db_channel.id))
-                end = int(int(arg[2]) / abs(client.db_channel.id))
-                ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
-                botmaker_msgs = []
-                for msg_id in ids:
-                    msg = await client.get_messages(client.db_channel.id, message_ids=msg_id)
-                    if not msg.empty:
-                        caption = (botmaker.CUSTOM_CAPTION.format(filename=msg.document.file_name) if bool(botmaker.CUSTOM_CAPTION) and bool(msg.document)
-                                   else ("" if not msg.caption else msg.caption.html))
-                        reply_markup = msg.reply_markup if not Var.DISABLE_CHANNEL_BUTTON else None
-                        try:
-                            copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML,
-                                                        reply_markup=reply_markup, protect_content=Var.PROTECT_CONTENT)
-                            botmaker_msgs.append(copied_msg)
-                        except FloodWait as e:
-                            await asyncio.sleep(e.x)
-                            copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML,
-                                                        reply_markup=reply_markup, protect_content=Var.PROTECT_CONTENT)
-                            botmaker_msgs.append(copied_msg)
-                await temp.delete()
-                if Var.FILE_AUTO_DELETE > 0:
-                    notification_msg = await message.reply(
-                        f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ {get_exp_time(Var.FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
-                    )
-                    await asyncio.sleep(Var.FILE_AUTO_DELETE)
-                    for snt_msg in botmaker_msgs:
-                        if snt_msg:
-                            try:
-                                await snt_msg.delete()
-                            except Exception as e:
-                                logger.error(f"Error deleting message {snt_msg.id}: {e}")
-                    try:
-                        reload_url = f"https://t.me/{me.username}?start={txtargs[1]}"
-                        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ!", url=reload_url), InlineKeyboardButton("ᴄʟᴏsᴇ", callback_data='close')]])
-                        await notification_msg.edit(
-                            "<b><u>Pʀᴇᴠɪᴏᴜs Mᴇssᴀɢᴇ ᴡᴀs Dᴇʟᴇᴛᴇᴅ 🗑</u></b><blockquote><b>\nIғ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ɢᴇᴛ ᴛʜᴇ ғɪʟᴇ(s) ᴀɢᴀɪɴ, ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ ʙᴜᴛᴛᴏɴ ʙᴇʟᴏᴡ ᴇʟsᴇ ᴄʟᴏsᴇ ᴛʜɪs ᴍᴇssᴀɢᴇ ʙʏ ᴄʟɪᴄᴋ ᴏɴ ᴄʟᴏsᴇ.</b></blockquote>",
-                            reply_markup=keyboard
-                        )
-                    except Exception as e:
-                        logger.error(f"Error updating notification: {e}")
-        except Exception as e:
-            await rep.report(f"User : {user_id} | Error : {str(e)}", "error")
-            await editMessage(temp, "<b>File Not Found !</b>")
+    # Forward the request to the owner
+    owner_message = f"{message.from_user.first_name} ({message.from_user.id})\n\nRequest: {requested}"
+    await client.send_message(OWNER_ID, owner_message)
+
+    await message.reply("Thanks for your request! Your request will be reviewed soon. Please wait.")
+
+@Bot.on_message(filters.command('my_plan') & filters.private)
+async def my_plan(client: Client, message: Message):
+    user_id = message.from_user.id
+    is_user_premium = await is_premium(user_id)
+
+    if is_user_premium:
+        await message.reply_text("Ads : Disable\nPremium : Unlocked\n\nNice Dude you're a premium user..!")
     else:
-        await editMessage(temp, "<b>Input Link is Invalid for Usage !</b>")
+        await message.reply_text("Ads : Enable\nPremium : Locked\nUnlock Premium to get more benefits\nContact - @Diablovolfir0..!")
 
-@bot.on_message(filters.command('pause') & filters.private & admin)  # Ensure admin filter is defined
-async def pause_fetch(client, message):
-    ani_cache['fetch_animes'] = False
-    await sendMessage(message, "Successfully Paused Fetching Anime...")
+@Bot.on_message(filters.command('users') & filters.private & filters.user(OWNER_ID))
+async def get_users(client: Bot, message: Message):
+    msg = await client.send_message(chat_id=message.chat.id, text=WAIT_MSG)
+    users = await full_userbase()
+    await msg.edit(f"{len(users)} users are using this bot")
 
-@bot.on_message(filters.command('resume') & filters.private & admin)  # Ensure admin filter is defined
-async def resume_fetch(client, message):
-    ani_cache['fetch_animes'] = True
-    await sendMessage(message, "Successfully Resumed Fetching Anime...")
+@Bot.on_message(filters.private & filters.command('broadcast') & filters.user(ADMINS))
+async def send_text(client: Bot, message: Message):
+    if message.reply_to_message:
+        query = await full_userbase()
+        broadcast_msg = message.reply_to_message
+        total = 0
+        successful = 0
+        blocked = 0
+        deleted = 0
+        unsuccessful = 0
+        
+        pls_wait = await message.reply("<i>Broadcast Processing Till Wait Dude... </i>")
+        for chat_id in query:
+            try:
+                await broadcast_msg.copy(chat_id)
+                successful += 1
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                await broadcast_msg.copy(chat_id)
+                successful += 1
+            except UserIsBlocked:
+                await del_user(chat_id)
+                blocked += 1
+            except InputUserDeactivated:
+                await del_user(chat_id)
+                deleted += 1
+            except:
+                unsuccessful += 1
+                pass
+            total += 1
+        
+        status = f"""<b><u>ʙʀᴏᴀᴅᴄᴀꜱᴛ...</u>
 
-@bot.on_message(filters.command('addlink') & filters.private & admin)  # Ensure admin filter is defined
-@new_task
-async def add_link(client, message):
-    if len(args := message.text.split()) <= 1:
-        return await sendMessage(message, "<b>No Link Found to Add</b>")
-    
-    Var.RSS_ITEMS.append(args[1])
-    await sendMessage(message, f"<code>Global Link Added Successfully!</code>\n\n<b> • All Link(s) :</b> {', '.join(Var.RSS_ITEMS)[:-2]}")
+Total Users: <code>{total}</code>
+Successful: <code>{successful}</code>
+Blocked Users: <code>{blocked}</code>
+Deleted Accounts: <code>{deleted}</code>
+Unsuccessful: <code>{unsuccessful}</code></b>"""
+        
+        return await pls_wait.edit(status)
 
-@bot.on_message(filters.command('addtask') & filters.private & admin)  # Ensure admin filter is defined
-@new_task
-async def add_task(client, message):
-    if len(args := message.text.split()) <= 1:
-        return await sendMessage(message, "<b>No Task Found to Add</b>")
-    
-    index = int(args[2]) if len(args) > 2 and args[2].isdigit() else 0
-    if not (taskInfo := await getfeed(args[1], index)):
-        return await sendMessage(message, "<b>No Task Found to Add for the Provided Link</b>")
-    
-    ani_task = bot_loop.create_task(get_animes(taskInfo.title, taskInfo.link, True))
-    await sendMessage(message, f"<i><b>Task Added Successfully!</b></i>\n\n    • <b>Task Name :</b> {taskInfo.title}\n    • <b>Task Link :</b> {args[1]}")
-
-@bot.on_message(filters.command('commands') & filters.private & admin)  # Ensure admin filter is defined
-async def bcmd(client: Client, message: Message):        
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("• ᴄʟᴏsᴇ •", callback_data="close")]])
-    await message.reply(text=botmaker.CMD_TXT, reply_markup=reply_markup, quote=True)
+    else:
+        msg = await message.reply(REPLY_ERROR)
+        await asyncio.sleep(8)
+        await msg.delete()
